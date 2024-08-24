@@ -1,0 +1,189 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "oracleAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_baseFee",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_minFee",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_maxFee",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_volatilityFactor",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newFee",
+						"type": "uint256"
+					}
+				],
+				"name": "FeeAdjusted",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "tokenPair",
+						"type": "string"
+					}
+				],
+				"name": "adjustFee",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "baseFee",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getTradingFee",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "maxFee",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "minFee",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "priceOracle",
+				"outputs": [
+					{
+						"internalType": "contract Oracle",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "volatilityFactor",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/DynamicFee.sol": "DynamicFee"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/DynamicFee.sol": {
+			"keccak256": "0xa714b76fd2fe468b1def3d918e824d3b32c3c96d57b446e7fd166729e450a570",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://fb84f71fc71cf938d4c52cb80cea30b98d100c0353dfe6ad141c4c5166e18030",
+				"dweb:/ipfs/QmW8bPKHcJdAf95iRTbMztyESFRAh4BeqtbHbMNsMv8N9w"
+			]
+		},
+		"contracts/Oracle.sol": {
+			"keccak256": "0xbe53421362d9eeb02a4f6e324cea4020b3ace1c90ee837d23abf218e56e17a4e",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://a4433b0d0701efe36d122ecc5448e8b59e02d64518d43ae2c858297175ae23a4",
+				"dweb:/ipfs/QmY3eTxHpcmRbhkMNasm1Tt5dFFuJ8V4xtFjTGS2rtMyEj"
+			]
+		}
+	},
+	"version": 1
+}
