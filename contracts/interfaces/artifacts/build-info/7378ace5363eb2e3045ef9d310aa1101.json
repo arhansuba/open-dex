@@ -1,0 +1,2777 @@
+{
+	"id": "7378ace5363eb2e3045ef9d310aa1101",
+	"_format": "hh-sol-build-info-1",
+	"solcVersion": "0.8.26",
+	"solcLongVersion": "0.8.26+commit.8a97fa7a",
+	"input": {
+		"language": "Solidity",
+		"sources": {
+			"contracts/interfaces/IV3Migrator.sol": {
+				"content": "// SPDX-License-Identifier: GPL-2.0-or-later\r\npragma solidity >=0.7.5;\r\npragma abicoder v2;\r\n\r\nimport './IMulticall.sol';\r\nimport './ISelfPermit.sol';\r\nimport './IPoolInitializer.sol';\r\n\r\n/// @title V3 Migrator\r\n/// @notice Enables migration of liqudity from Uniswap v2-compatible pairs into Uniswap v3 pools\r\ninterface IV3Migrator is IMulticall, ISelfPermit, IPoolInitializer {\r\n    struct MigrateParams {\r\n        address pair; // the Uniswap v2-compatible pair\r\n        uint256 liquidityToMigrate; // expected to be balanceOf(msg.sender)\r\n        uint8 percentageToMigrate; // represented as a numerator over 100\r\n        address token0;\r\n        address token1;\r\n        uint24 fee;\r\n        int24 tickLower;\r\n        int24 tickUpper;\r\n        uint256 amount0Min; // must be discounted by percentageToMigrate\r\n        uint256 amount1Min; // must be discounted by percentageToMigrate\r\n        address recipient;\r\n        uint256 deadline;\r\n        bool refundAsETH;\r\n    }\r\n\r\n    /// @notice Migrates liquidity to v3 by burning v2 liquidity and minting a new position for v3\r\n    /// @dev Slippage protection is enforced via `amount{0,1}Min`, which should be a discount of the expected values of\r\n    /// the maximum amount of v3 liquidity that the v2 liquidity can get. For the special case of migrating to an\r\n    /// out-of-range position, `amount{0,1}Min` may be set to 0, enforcing that the position remains out of range\r\n    /// @param params The params necessary to migrate v2 liquidity, encoded as `MigrateParams` in calldata\r\n    function migrate(MigrateParams calldata params) external;\r\n}\r\n"
+			},
+			"contracts/interfaces/IPoolInitializer.sol": {
+				"content": "// SPDX-License-Identifier: GPL-2.0-or-later\r\npragma solidity >=0.7.5;\r\npragma abicoder v2;\r\n\r\n/// @title Creates and initializes V3 Pools\r\n/// @notice Provides a method for creating and initializing a pool, if necessary, for bundling with other methods that\r\n/// require the pool to exist.\r\ninterface IPoolInitializer {\r\n    /// @notice Creates a new pool if it does not exist, then initializes if not initialized\r\n    /// @dev This method can be bundled with others via IMulticall for the first action (e.g. mint) performed against a pool\r\n    /// @param token0 The contract address of token0 of the pool\r\n    /// @param token1 The contract address of token1 of the pool\r\n    /// @param fee The fee amount of the v3 pool for the specified token pair\r\n    /// @param sqrtPriceX96 The initial square root price of the pool as a Q64.96 value\r\n    /// @return pool Returns the pool address based on the pair of tokens and fee, will return the newly created pool address if necessary\r\n    function createAndInitializePoolIfNecessary(\r\n        address token0,\r\n        address token1,\r\n        uint24 fee,\r\n        uint160 sqrtPriceX96\r\n    ) external payable returns (address pool);\r\n}\r\n"
+			},
+			"contracts/interfaces/ISelfPermit.sol": {
+				"content": "// SPDX-License-Identifier: GPL-2.0-or-later\r\npragma solidity >=0.7.5;\r\n\r\n/// @title Self Permit\r\n/// @notice Functionality to call permit on any EIP-2612-compliant token for use in the route\r\ninterface ISelfPermit {\r\n    /// @notice Permits this contract to spend a given token from `msg.sender`\r\n    /// @dev The `owner` is always msg.sender and the `spender` is always address(this).\r\n    /// @param token The address of the token spent\r\n    /// @param value The amount that can be spent of token\r\n    /// @param deadline A timestamp, the current blocktime must be less than or equal to this timestamp\r\n    /// @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`\r\n    /// @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`\r\n    /// @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`\r\n    function selfPermit(\r\n        address token,\r\n        uint256 value,\r\n        uint256 deadline,\r\n        uint8 v,\r\n        bytes32 r,\r\n        bytes32 s\r\n    ) external payable;\r\n\r\n    /// @notice Permits this contract to spend a given token from `msg.sender`\r\n    /// @dev The `owner` is always msg.sender and the `spender` is always address(this).\r\n    /// Can be used instead of #selfPermit to prevent calls from failing due to a frontrun of a call to #selfPermit\r\n    /// @param token The address of the token spent\r\n    /// @param value The amount that can be spent of token\r\n    /// @param deadline A timestamp, the current blocktime must be less than or equal to this timestamp\r\n    /// @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`\r\n    /// @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`\r\n    /// @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`\r\n    function selfPermitIfNecessary(\r\n        address token,\r\n        uint256 value,\r\n        uint256 deadline,\r\n        uint8 v,\r\n        bytes32 r,\r\n        bytes32 s\r\n    ) external payable;\r\n\r\n    /// @notice Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter\r\n    /// @dev The `owner` is always msg.sender and the `spender` is always address(this)\r\n    /// @param token The address of the token spent\r\n    /// @param nonce The current nonce of the owner\r\n    /// @param expiry The timestamp at which the permit is no longer valid\r\n    /// @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`\r\n    /// @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`\r\n    /// @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`\r\n    function selfPermitAllowed(\r\n        address token,\r\n        uint256 nonce,\r\n        uint256 expiry,\r\n        uint8 v,\r\n        bytes32 r,\r\n        bytes32 s\r\n    ) external payable;\r\n\r\n    /// @notice Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter\r\n    /// @dev The `owner` is always msg.sender and the `spender` is always address(this)\r\n    /// Can be used instead of #selfPermitAllowed to prevent calls from failing due to a frontrun of a call to #selfPermitAllowed.\r\n    /// @param token The address of the token spent\r\n    /// @param nonce The current nonce of the owner\r\n    /// @param expiry The timestamp at which the permit is no longer valid\r\n    /// @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`\r\n    /// @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`\r\n    /// @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`\r\n    function selfPermitAllowedIfNecessary(\r\n        address token,\r\n        uint256 nonce,\r\n        uint256 expiry,\r\n        uint8 v,\r\n        bytes32 r,\r\n        bytes32 s\r\n    ) external payable;\r\n}\r\n"
+			},
+			"contracts/interfaces/IMulticall.sol": {
+				"content": "// SPDX-License-Identifier: GPL-2.0-or-later\r\npragma solidity >=0.7.5;\r\npragma abicoder v2;\r\n\r\n/// @title Multicall interface\r\n/// @notice Enables calling multiple methods in a single call to the contract\r\ninterface IMulticall {\r\n    /// @notice Call multiple functions in the current contract and return the data from all of them if they all succeed\r\n    /// @dev The `msg.value` should not be trusted for any method callable from multicall.\r\n    /// @param data The encoded function data for each of the calls to make to this contract\r\n    /// @return results The results from each of the calls passed in via data\r\n    function multicall(bytes[] calldata data) external payable returns (bytes[] memory results);\r\n}\r\n"
+			}
+		},
+		"settings": {
+			"optimizer": {
+				"enabled": false,
+				"runs": 200
+			},
+			"outputSelection": {
+				"*": {
+					"": [
+						"ast"
+					],
+					"*": [
+						"abi",
+						"metadata",
+						"devdoc",
+						"userdoc",
+						"storageLayout",
+						"evm.legacyAssembly",
+						"evm.bytecode",
+						"evm.deployedBytecode",
+						"evm.methodIdentifiers",
+						"evm.gasEstimates",
+						"evm.assembly"
+					]
+				}
+			},
+			"remappings": []
+		}
+	},
+	"output": {
+		"contracts": {
+			"contracts/interfaces/IMulticall.sol": {
+				"IMulticall": {
+					"abi": [
+						{
+							"inputs": [
+								{
+									"internalType": "bytes[]",
+									"name": "data",
+									"type": "bytes[]"
+								}
+							],
+							"name": "multicall",
+							"outputs": [
+								{
+									"internalType": "bytes[]",
+									"name": "results",
+									"type": "bytes[]"
+								}
+							],
+							"stateMutability": "payable",
+							"type": "function"
+						}
+					],
+					"devdoc": {
+						"kind": "dev",
+						"methods": {
+							"multicall(bytes[])": {
+								"details": "The `msg.value` should not be trusted for any method callable from multicall.",
+								"params": {
+									"data": "The encoded function data for each of the calls to make to this contract"
+								},
+								"returns": {
+									"results": "The results from each of the calls passed in via data"
+								}
+							}
+						},
+						"title": "Multicall interface",
+						"version": 1
+					},
+					"evm": {
+						"assembly": "",
+						"bytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"deployedBytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"immutableReferences": {},
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"gasEstimates": null,
+						"legacyAssembly": null,
+						"methodIdentifiers": {
+							"multicall(bytes[])": "ac9650d8"
+						}
+					},
+					"metadata": "{\"compiler\":{\"version\":\"0.8.26+commit.8a97fa7a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"data\",\"type\":\"bytes[]\"}],\"name\":\"multicall\",\"outputs\":[{\"internalType\":\"bytes[]\",\"name\":\"results\",\"type\":\"bytes[]\"}],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"multicall(bytes[])\":{\"details\":\"The `msg.value` should not be trusted for any method callable from multicall.\",\"params\":{\"data\":\"The encoded function data for each of the calls to make to this contract\"},\"returns\":{\"results\":\"The results from each of the calls passed in via data\"}}},\"title\":\"Multicall interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"multicall(bytes[])\":{\"notice\":\"Call multiple functions in the current contract and return the data from all of them if they all succeed\"}},\"notice\":\"Enables calling multiple methods in a single call to the contract\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/interfaces/IMulticall.sol\":\"IMulticall\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/interfaces/IMulticall.sol\":{\"keccak256\":\"0x76aeef8a8cd237f1bd8fb67f21e1734ba5c294b522c1932ce336f72fe41e5355\",\"license\":\"GPL-2.0-or-later\",\"urls\":[\"bzz-raw://0b577b8f8e1b2767f218d0a1d78f7cc4d7b24ccd01ed7422a7129f9ae465edff\",\"dweb:/ipfs/QmVUzqSeAXf9Urwc1tseh1sW3pNz6z36vEYYYAGTNAnDWf\"]}},\"version\":1}",
+					"storageLayout": {
+						"storage": [],
+						"types": null
+					},
+					"userdoc": {
+						"kind": "user",
+						"methods": {
+							"multicall(bytes[])": {
+								"notice": "Call multiple functions in the current contract and return the data from all of them if they all succeed"
+							}
+						},
+						"notice": "Enables calling multiple methods in a single call to the contract",
+						"version": 1
+					}
+				}
+			},
+			"contracts/interfaces/IPoolInitializer.sol": {
+				"IPoolInitializer": {
+					"abi": [
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token0",
+									"type": "address"
+								},
+								{
+									"internalType": "address",
+									"name": "token1",
+									"type": "address"
+								},
+								{
+									"internalType": "uint24",
+									"name": "fee",
+									"type": "uint24"
+								},
+								{
+									"internalType": "uint160",
+									"name": "sqrtPriceX96",
+									"type": "uint160"
+								}
+							],
+							"name": "createAndInitializePoolIfNecessary",
+							"outputs": [
+								{
+									"internalType": "address",
+									"name": "pool",
+									"type": "address"
+								}
+							],
+							"stateMutability": "payable",
+							"type": "function"
+						}
+					],
+					"devdoc": {
+						"kind": "dev",
+						"methods": {
+							"createAndInitializePoolIfNecessary(address,address,uint24,uint160)": {
+								"details": "This method can be bundled with others via IMulticall for the first action (e.g. mint) performed against a pool",
+								"params": {
+									"fee": "The fee amount of the v3 pool for the specified token pair",
+									"sqrtPriceX96": "The initial square root price of the pool as a Q64.96 value",
+									"token0": "The contract address of token0 of the pool",
+									"token1": "The contract address of token1 of the pool"
+								},
+								"returns": {
+									"pool": "Returns the pool address based on the pair of tokens and fee, will return the newly created pool address if necessary"
+								}
+							}
+						},
+						"title": "Creates and initializes V3 Pools",
+						"version": 1
+					},
+					"evm": {
+						"assembly": "",
+						"bytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"deployedBytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"immutableReferences": {},
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"gasEstimates": null,
+						"legacyAssembly": null,
+						"methodIdentifiers": {
+							"createAndInitializePoolIfNecessary(address,address,uint24,uint160)": "13ead562"
+						}
+					},
+					"metadata": "{\"compiler\":{\"version\":\"0.8.26+commit.8a97fa7a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token0\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token1\",\"type\":\"address\"},{\"internalType\":\"uint24\",\"name\":\"fee\",\"type\":\"uint24\"},{\"internalType\":\"uint160\",\"name\":\"sqrtPriceX96\",\"type\":\"uint160\"}],\"name\":\"createAndInitializePoolIfNecessary\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"createAndInitializePoolIfNecessary(address,address,uint24,uint160)\":{\"details\":\"This method can be bundled with others via IMulticall for the first action (e.g. mint) performed against a pool\",\"params\":{\"fee\":\"The fee amount of the v3 pool for the specified token pair\",\"sqrtPriceX96\":\"The initial square root price of the pool as a Q64.96 value\",\"token0\":\"The contract address of token0 of the pool\",\"token1\":\"The contract address of token1 of the pool\"},\"returns\":{\"pool\":\"Returns the pool address based on the pair of tokens and fee, will return the newly created pool address if necessary\"}}},\"title\":\"Creates and initializes V3 Pools\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"createAndInitializePoolIfNecessary(address,address,uint24,uint160)\":{\"notice\":\"Creates a new pool if it does not exist, then initializes if not initialized\"}},\"notice\":\"Provides a method for creating and initializing a pool, if necessary, for bundling with other methods that require the pool to exist.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/interfaces/IPoolInitializer.sol\":\"IPoolInitializer\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/interfaces/IPoolInitializer.sol\":{\"keccak256\":\"0x8229e43304f2c2412aaca27ea314ee78f3bcaca31124017b3bc4729c383594f1\",\"license\":\"GPL-2.0-or-later\",\"urls\":[\"bzz-raw://3beed69fd04dd1ad59e9c083914ca47fd1f3c0bf53e50a62c772597a25191d78\",\"dweb:/ipfs/QmZ7vuCn86Gg6kopXVw5hBRPemcqtWykke8zUskZArq8aP\"]}},\"version\":1}",
+					"storageLayout": {
+						"storage": [],
+						"types": null
+					},
+					"userdoc": {
+						"kind": "user",
+						"methods": {
+							"createAndInitializePoolIfNecessary(address,address,uint24,uint160)": {
+								"notice": "Creates a new pool if it does not exist, then initializes if not initialized"
+							}
+						},
+						"notice": "Provides a method for creating and initializing a pool, if necessary, for bundling with other methods that require the pool to exist.",
+						"version": 1
+					}
+				}
+			},
+			"contracts/interfaces/ISelfPermit.sol": {
+				"ISelfPermit": {
+					"abi": [
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "value",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint256",
+									"name": "deadline",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint8",
+									"name": "v",
+									"type": "uint8"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "r",
+									"type": "bytes32"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "s",
+									"type": "bytes32"
+								}
+							],
+							"name": "selfPermit",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "nonce",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint256",
+									"name": "expiry",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint8",
+									"name": "v",
+									"type": "uint8"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "r",
+									"type": "bytes32"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "s",
+									"type": "bytes32"
+								}
+							],
+							"name": "selfPermitAllowed",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "nonce",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint256",
+									"name": "expiry",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint8",
+									"name": "v",
+									"type": "uint8"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "r",
+									"type": "bytes32"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "s",
+									"type": "bytes32"
+								}
+							],
+							"name": "selfPermitAllowedIfNecessary",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "value",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint256",
+									"name": "deadline",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint8",
+									"name": "v",
+									"type": "uint8"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "r",
+									"type": "bytes32"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "s",
+									"type": "bytes32"
+								}
+							],
+							"name": "selfPermitIfNecessary",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						}
+					],
+					"devdoc": {
+						"kind": "dev",
+						"methods": {
+							"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"details": "The `owner` is always msg.sender and the `spender` is always address(this).",
+								"params": {
+									"deadline": "A timestamp, the current blocktime must be less than or equal to this timestamp",
+									"r": "Must produce valid secp256k1 signature from the holder along with `v` and `s`",
+									"s": "Must produce valid secp256k1 signature from the holder along with `r` and `v`",
+									"token": "The address of the token spent",
+									"v": "Must produce valid secp256k1 signature from the holder along with `r` and `s`",
+									"value": "The amount that can be spent of token"
+								}
+							},
+							"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"details": "The `owner` is always msg.sender and the `spender` is always address(this)",
+								"params": {
+									"expiry": "The timestamp at which the permit is no longer valid",
+									"nonce": "The current nonce of the owner",
+									"r": "Must produce valid secp256k1 signature from the holder along with `v` and `s`",
+									"s": "Must produce valid secp256k1 signature from the holder along with `r` and `v`",
+									"token": "The address of the token spent",
+									"v": "Must produce valid secp256k1 signature from the holder along with `r` and `s`"
+								}
+							},
+							"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"details": "The `owner` is always msg.sender and the `spender` is always address(this) Can be used instead of #selfPermitAllowed to prevent calls from failing due to a frontrun of a call to #selfPermitAllowed.",
+								"params": {
+									"expiry": "The timestamp at which the permit is no longer valid",
+									"nonce": "The current nonce of the owner",
+									"r": "Must produce valid secp256k1 signature from the holder along with `v` and `s`",
+									"s": "Must produce valid secp256k1 signature from the holder along with `r` and `v`",
+									"token": "The address of the token spent",
+									"v": "Must produce valid secp256k1 signature from the holder along with `r` and `s`"
+								}
+							},
+							"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"details": "The `owner` is always msg.sender and the `spender` is always address(this). Can be used instead of #selfPermit to prevent calls from failing due to a frontrun of a call to #selfPermit",
+								"params": {
+									"deadline": "A timestamp, the current blocktime must be less than or equal to this timestamp",
+									"r": "Must produce valid secp256k1 signature from the holder along with `v` and `s`",
+									"s": "Must produce valid secp256k1 signature from the holder along with `r` and `v`",
+									"token": "The address of the token spent",
+									"v": "Must produce valid secp256k1 signature from the holder along with `r` and `s`",
+									"value": "The amount that can be spent of token"
+								}
+							}
+						},
+						"title": "Self Permit",
+						"version": 1
+					},
+					"evm": {
+						"assembly": "",
+						"bytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"deployedBytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"immutableReferences": {},
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"gasEstimates": null,
+						"legacyAssembly": null,
+						"methodIdentifiers": {
+							"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)": "f3995c67",
+							"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)": "4659a494",
+							"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": "a4a78f0c",
+							"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": "c2e3140a"
+						}
+					},
+					"metadata": "{\"compiler\":{\"version\":\"0.8.26+commit.8a97fa7a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"selfPermit\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expiry\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"selfPermitAllowed\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expiry\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"selfPermitAllowedIfNecessary\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"selfPermitIfNecessary\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"details\":\"The `owner` is always msg.sender and the `spender` is always address(this).\",\"params\":{\"deadline\":\"A timestamp, the current blocktime must be less than or equal to this timestamp\",\"r\":\"Must produce valid secp256k1 signature from the holder along with `v` and `s`\",\"s\":\"Must produce valid secp256k1 signature from the holder along with `r` and `v`\",\"token\":\"The address of the token spent\",\"v\":\"Must produce valid secp256k1 signature from the holder along with `r` and `s`\",\"value\":\"The amount that can be spent of token\"}},\"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"details\":\"The `owner` is always msg.sender and the `spender` is always address(this)\",\"params\":{\"expiry\":\"The timestamp at which the permit is no longer valid\",\"nonce\":\"The current nonce of the owner\",\"r\":\"Must produce valid secp256k1 signature from the holder along with `v` and `s`\",\"s\":\"Must produce valid secp256k1 signature from the holder along with `r` and `v`\",\"token\":\"The address of the token spent\",\"v\":\"Must produce valid secp256k1 signature from the holder along with `r` and `s`\"}},\"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"details\":\"The `owner` is always msg.sender and the `spender` is always address(this) Can be used instead of #selfPermitAllowed to prevent calls from failing due to a frontrun of a call to #selfPermitAllowed.\",\"params\":{\"expiry\":\"The timestamp at which the permit is no longer valid\",\"nonce\":\"The current nonce of the owner\",\"r\":\"Must produce valid secp256k1 signature from the holder along with `v` and `s`\",\"s\":\"Must produce valid secp256k1 signature from the holder along with `r` and `v`\",\"token\":\"The address of the token spent\",\"v\":\"Must produce valid secp256k1 signature from the holder along with `r` and `s`\"}},\"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"details\":\"The `owner` is always msg.sender and the `spender` is always address(this). Can be used instead of #selfPermit to prevent calls from failing due to a frontrun of a call to #selfPermit\",\"params\":{\"deadline\":\"A timestamp, the current blocktime must be less than or equal to this timestamp\",\"r\":\"Must produce valid secp256k1 signature from the holder along with `v` and `s`\",\"s\":\"Must produce valid secp256k1 signature from the holder along with `r` and `v`\",\"token\":\"The address of the token spent\",\"v\":\"Must produce valid secp256k1 signature from the holder along with `r` and `s`\",\"value\":\"The amount that can be spent of token\"}}},\"title\":\"Self Permit\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"notice\":\"Permits this contract to spend a given token from `msg.sender`\"},\"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"notice\":\"Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter\"},\"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"notice\":\"Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter\"},\"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"notice\":\"Permits this contract to spend a given token from `msg.sender`\"}},\"notice\":\"Functionality to call permit on any EIP-2612-compliant token for use in the route\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/interfaces/ISelfPermit.sol\":\"ISelfPermit\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/interfaces/ISelfPermit.sol\":{\"keccak256\":\"0xb442ad31c8fef5c47ebb82b3b3f906d0a5dbca8eb26db90b287a4825bf53d595\",\"license\":\"GPL-2.0-or-later\",\"urls\":[\"bzz-raw://6e36e6e894083ad07e2ba62977a06db0874b8ed1f6eac705f4c9d89a410f54ea\",\"dweb:/ipfs/QmWLWTuKrcCzxZeedLpUG3c8jjFLs5gLmvt35Ysp2uc9c6\"]}},\"version\":1}",
+					"storageLayout": {
+						"storage": [],
+						"types": null
+					},
+					"userdoc": {
+						"kind": "user",
+						"methods": {
+							"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"notice": "Permits this contract to spend a given token from `msg.sender`"
+							},
+							"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"notice": "Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter"
+							},
+							"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"notice": "Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter"
+							},
+							"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"notice": "Permits this contract to spend a given token from `msg.sender`"
+							}
+						},
+						"notice": "Functionality to call permit on any EIP-2612-compliant token for use in the route",
+						"version": 1
+					}
+				}
+			},
+			"contracts/interfaces/IV3Migrator.sol": {
+				"IV3Migrator": {
+					"abi": [
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token0",
+									"type": "address"
+								},
+								{
+									"internalType": "address",
+									"name": "token1",
+									"type": "address"
+								},
+								{
+									"internalType": "uint24",
+									"name": "fee",
+									"type": "uint24"
+								},
+								{
+									"internalType": "uint160",
+									"name": "sqrtPriceX96",
+									"type": "uint160"
+								}
+							],
+							"name": "createAndInitializePoolIfNecessary",
+							"outputs": [
+								{
+									"internalType": "address",
+									"name": "pool",
+									"type": "address"
+								}
+							],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"components": [
+										{
+											"internalType": "address",
+											"name": "pair",
+											"type": "address"
+										},
+										{
+											"internalType": "uint256",
+											"name": "liquidityToMigrate",
+											"type": "uint256"
+										},
+										{
+											"internalType": "uint8",
+											"name": "percentageToMigrate",
+											"type": "uint8"
+										},
+										{
+											"internalType": "address",
+											"name": "token0",
+											"type": "address"
+										},
+										{
+											"internalType": "address",
+											"name": "token1",
+											"type": "address"
+										},
+										{
+											"internalType": "uint24",
+											"name": "fee",
+											"type": "uint24"
+										},
+										{
+											"internalType": "int24",
+											"name": "tickLower",
+											"type": "int24"
+										},
+										{
+											"internalType": "int24",
+											"name": "tickUpper",
+											"type": "int24"
+										},
+										{
+											"internalType": "uint256",
+											"name": "amount0Min",
+											"type": "uint256"
+										},
+										{
+											"internalType": "uint256",
+											"name": "amount1Min",
+											"type": "uint256"
+										},
+										{
+											"internalType": "address",
+											"name": "recipient",
+											"type": "address"
+										},
+										{
+											"internalType": "uint256",
+											"name": "deadline",
+											"type": "uint256"
+										},
+										{
+											"internalType": "bool",
+											"name": "refundAsETH",
+											"type": "bool"
+										}
+									],
+									"internalType": "struct IV3Migrator.MigrateParams",
+									"name": "params",
+									"type": "tuple"
+								}
+							],
+							"name": "migrate",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "bytes[]",
+									"name": "data",
+									"type": "bytes[]"
+								}
+							],
+							"name": "multicall",
+							"outputs": [
+								{
+									"internalType": "bytes[]",
+									"name": "results",
+									"type": "bytes[]"
+								}
+							],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "value",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint256",
+									"name": "deadline",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint8",
+									"name": "v",
+									"type": "uint8"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "r",
+									"type": "bytes32"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "s",
+									"type": "bytes32"
+								}
+							],
+							"name": "selfPermit",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "nonce",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint256",
+									"name": "expiry",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint8",
+									"name": "v",
+									"type": "uint8"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "r",
+									"type": "bytes32"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "s",
+									"type": "bytes32"
+								}
+							],
+							"name": "selfPermitAllowed",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "nonce",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint256",
+									"name": "expiry",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint8",
+									"name": "v",
+									"type": "uint8"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "r",
+									"type": "bytes32"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "s",
+									"type": "bytes32"
+								}
+							],
+							"name": "selfPermitAllowedIfNecessary",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "address",
+									"name": "token",
+									"type": "address"
+								},
+								{
+									"internalType": "uint256",
+									"name": "value",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint256",
+									"name": "deadline",
+									"type": "uint256"
+								},
+								{
+									"internalType": "uint8",
+									"name": "v",
+									"type": "uint8"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "r",
+									"type": "bytes32"
+								},
+								{
+									"internalType": "bytes32",
+									"name": "s",
+									"type": "bytes32"
+								}
+							],
+							"name": "selfPermitIfNecessary",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						}
+					],
+					"devdoc": {
+						"kind": "dev",
+						"methods": {
+							"createAndInitializePoolIfNecessary(address,address,uint24,uint160)": {
+								"details": "This method can be bundled with others via IMulticall for the first action (e.g. mint) performed against a pool",
+								"params": {
+									"fee": "The fee amount of the v3 pool for the specified token pair",
+									"sqrtPriceX96": "The initial square root price of the pool as a Q64.96 value",
+									"token0": "The contract address of token0 of the pool",
+									"token1": "The contract address of token1 of the pool"
+								},
+								"returns": {
+									"pool": "Returns the pool address based on the pair of tokens and fee, will return the newly created pool address if necessary"
+								}
+							},
+							"migrate((address,uint256,uint8,address,address,uint24,int24,int24,uint256,uint256,address,uint256,bool))": {
+								"details": "Slippage protection is enforced via `amount{0,1}Min`, which should be a discount of the expected values of the maximum amount of v3 liquidity that the v2 liquidity can get. For the special case of migrating to an out-of-range position, `amount{0,1}Min` may be set to 0, enforcing that the position remains out of range",
+								"params": {
+									"params": "The params necessary to migrate v2 liquidity, encoded as `MigrateParams` in calldata"
+								}
+							},
+							"multicall(bytes[])": {
+								"details": "The `msg.value` should not be trusted for any method callable from multicall.",
+								"params": {
+									"data": "The encoded function data for each of the calls to make to this contract"
+								},
+								"returns": {
+									"results": "The results from each of the calls passed in via data"
+								}
+							},
+							"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"details": "The `owner` is always msg.sender and the `spender` is always address(this).",
+								"params": {
+									"deadline": "A timestamp, the current blocktime must be less than or equal to this timestamp",
+									"r": "Must produce valid secp256k1 signature from the holder along with `v` and `s`",
+									"s": "Must produce valid secp256k1 signature from the holder along with `r` and `v`",
+									"token": "The address of the token spent",
+									"v": "Must produce valid secp256k1 signature from the holder along with `r` and `s`",
+									"value": "The amount that can be spent of token"
+								}
+							},
+							"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"details": "The `owner` is always msg.sender and the `spender` is always address(this)",
+								"params": {
+									"expiry": "The timestamp at which the permit is no longer valid",
+									"nonce": "The current nonce of the owner",
+									"r": "Must produce valid secp256k1 signature from the holder along with `v` and `s`",
+									"s": "Must produce valid secp256k1 signature from the holder along with `r` and `v`",
+									"token": "The address of the token spent",
+									"v": "Must produce valid secp256k1 signature from the holder along with `r` and `s`"
+								}
+							},
+							"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"details": "The `owner` is always msg.sender and the `spender` is always address(this) Can be used instead of #selfPermitAllowed to prevent calls from failing due to a frontrun of a call to #selfPermitAllowed.",
+								"params": {
+									"expiry": "The timestamp at which the permit is no longer valid",
+									"nonce": "The current nonce of the owner",
+									"r": "Must produce valid secp256k1 signature from the holder along with `v` and `s`",
+									"s": "Must produce valid secp256k1 signature from the holder along with `r` and `v`",
+									"token": "The address of the token spent",
+									"v": "Must produce valid secp256k1 signature from the holder along with `r` and `s`"
+								}
+							},
+							"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"details": "The `owner` is always msg.sender and the `spender` is always address(this). Can be used instead of #selfPermit to prevent calls from failing due to a frontrun of a call to #selfPermit",
+								"params": {
+									"deadline": "A timestamp, the current blocktime must be less than or equal to this timestamp",
+									"r": "Must produce valid secp256k1 signature from the holder along with `v` and `s`",
+									"s": "Must produce valid secp256k1 signature from the holder along with `r` and `v`",
+									"token": "The address of the token spent",
+									"v": "Must produce valid secp256k1 signature from the holder along with `r` and `s`",
+									"value": "The amount that can be spent of token"
+								}
+							}
+						},
+						"title": "V3 Migrator",
+						"version": 1
+					},
+					"evm": {
+						"assembly": "",
+						"bytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"deployedBytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"immutableReferences": {},
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"gasEstimates": null,
+						"legacyAssembly": null,
+						"methodIdentifiers": {
+							"createAndInitializePoolIfNecessary(address,address,uint24,uint160)": "13ead562",
+							"migrate((address,uint256,uint8,address,address,uint24,int24,int24,uint256,uint256,address,uint256,bool))": "d44f2bf2",
+							"multicall(bytes[])": "ac9650d8",
+							"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)": "f3995c67",
+							"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)": "4659a494",
+							"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": "a4a78f0c",
+							"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": "c2e3140a"
+						}
+					},
+					"metadata": "{\"compiler\":{\"version\":\"0.8.26+commit.8a97fa7a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token0\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token1\",\"type\":\"address\"},{\"internalType\":\"uint24\",\"name\":\"fee\",\"type\":\"uint24\"},{\"internalType\":\"uint160\",\"name\":\"sqrtPriceX96\",\"type\":\"uint160\"}],\"name\":\"createAndInitializePoolIfNecessary\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"pair\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"liquidityToMigrate\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"percentageToMigrate\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"token0\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token1\",\"type\":\"address\"},{\"internalType\":\"uint24\",\"name\":\"fee\",\"type\":\"uint24\"},{\"internalType\":\"int24\",\"name\":\"tickLower\",\"type\":\"int24\"},{\"internalType\":\"int24\",\"name\":\"tickUpper\",\"type\":\"int24\"},{\"internalType\":\"uint256\",\"name\":\"amount0Min\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"amount1Min\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"refundAsETH\",\"type\":\"bool\"}],\"internalType\":\"struct IV3Migrator.MigrateParams\",\"name\":\"params\",\"type\":\"tuple\"}],\"name\":\"migrate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"data\",\"type\":\"bytes[]\"}],\"name\":\"multicall\",\"outputs\":[{\"internalType\":\"bytes[]\",\"name\":\"results\",\"type\":\"bytes[]\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"selfPermit\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expiry\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"selfPermitAllowed\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expiry\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"selfPermitAllowedIfNecessary\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"name\":\"selfPermitIfNecessary\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"createAndInitializePoolIfNecessary(address,address,uint24,uint160)\":{\"details\":\"This method can be bundled with others via IMulticall for the first action (e.g. mint) performed against a pool\",\"params\":{\"fee\":\"The fee amount of the v3 pool for the specified token pair\",\"sqrtPriceX96\":\"The initial square root price of the pool as a Q64.96 value\",\"token0\":\"The contract address of token0 of the pool\",\"token1\":\"The contract address of token1 of the pool\"},\"returns\":{\"pool\":\"Returns the pool address based on the pair of tokens and fee, will return the newly created pool address if necessary\"}},\"migrate((address,uint256,uint8,address,address,uint24,int24,int24,uint256,uint256,address,uint256,bool))\":{\"details\":\"Slippage protection is enforced via `amount{0,1}Min`, which should be a discount of the expected values of the maximum amount of v3 liquidity that the v2 liquidity can get. For the special case of migrating to an out-of-range position, `amount{0,1}Min` may be set to 0, enforcing that the position remains out of range\",\"params\":{\"params\":\"The params necessary to migrate v2 liquidity, encoded as `MigrateParams` in calldata\"}},\"multicall(bytes[])\":{\"details\":\"The `msg.value` should not be trusted for any method callable from multicall.\",\"params\":{\"data\":\"The encoded function data for each of the calls to make to this contract\"},\"returns\":{\"results\":\"The results from each of the calls passed in via data\"}},\"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"details\":\"The `owner` is always msg.sender and the `spender` is always address(this).\",\"params\":{\"deadline\":\"A timestamp, the current blocktime must be less than or equal to this timestamp\",\"r\":\"Must produce valid secp256k1 signature from the holder along with `v` and `s`\",\"s\":\"Must produce valid secp256k1 signature from the holder along with `r` and `v`\",\"token\":\"The address of the token spent\",\"v\":\"Must produce valid secp256k1 signature from the holder along with `r` and `s`\",\"value\":\"The amount that can be spent of token\"}},\"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"details\":\"The `owner` is always msg.sender and the `spender` is always address(this)\",\"params\":{\"expiry\":\"The timestamp at which the permit is no longer valid\",\"nonce\":\"The current nonce of the owner\",\"r\":\"Must produce valid secp256k1 signature from the holder along with `v` and `s`\",\"s\":\"Must produce valid secp256k1 signature from the holder along with `r` and `v`\",\"token\":\"The address of the token spent\",\"v\":\"Must produce valid secp256k1 signature from the holder along with `r` and `s`\"}},\"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"details\":\"The `owner` is always msg.sender and the `spender` is always address(this) Can be used instead of #selfPermitAllowed to prevent calls from failing due to a frontrun of a call to #selfPermitAllowed.\",\"params\":{\"expiry\":\"The timestamp at which the permit is no longer valid\",\"nonce\":\"The current nonce of the owner\",\"r\":\"Must produce valid secp256k1 signature from the holder along with `v` and `s`\",\"s\":\"Must produce valid secp256k1 signature from the holder along with `r` and `v`\",\"token\":\"The address of the token spent\",\"v\":\"Must produce valid secp256k1 signature from the holder along with `r` and `s`\"}},\"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"details\":\"The `owner` is always msg.sender and the `spender` is always address(this). Can be used instead of #selfPermit to prevent calls from failing due to a frontrun of a call to #selfPermit\",\"params\":{\"deadline\":\"A timestamp, the current blocktime must be less than or equal to this timestamp\",\"r\":\"Must produce valid secp256k1 signature from the holder along with `v` and `s`\",\"s\":\"Must produce valid secp256k1 signature from the holder along with `r` and `v`\",\"token\":\"The address of the token spent\",\"v\":\"Must produce valid secp256k1 signature from the holder along with `r` and `s`\",\"value\":\"The amount that can be spent of token\"}}},\"title\":\"V3 Migrator\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"createAndInitializePoolIfNecessary(address,address,uint24,uint160)\":{\"notice\":\"Creates a new pool if it does not exist, then initializes if not initialized\"},\"migrate((address,uint256,uint8,address,address,uint24,int24,int24,uint256,uint256,address,uint256,bool))\":{\"notice\":\"Migrates liquidity to v3 by burning v2 liquidity and minting a new position for v3\"},\"multicall(bytes[])\":{\"notice\":\"Call multiple functions in the current contract and return the data from all of them if they all succeed\"},\"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"notice\":\"Permits this contract to spend a given token from `msg.sender`\"},\"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"notice\":\"Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter\"},\"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"notice\":\"Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter\"},\"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)\":{\"notice\":\"Permits this contract to spend a given token from `msg.sender`\"}},\"notice\":\"Enables migration of liqudity from Uniswap v2-compatible pairs into Uniswap v3 pools\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/interfaces/IV3Migrator.sol\":\"IV3Migrator\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/interfaces/IMulticall.sol\":{\"keccak256\":\"0x76aeef8a8cd237f1bd8fb67f21e1734ba5c294b522c1932ce336f72fe41e5355\",\"license\":\"GPL-2.0-or-later\",\"urls\":[\"bzz-raw://0b577b8f8e1b2767f218d0a1d78f7cc4d7b24ccd01ed7422a7129f9ae465edff\",\"dweb:/ipfs/QmVUzqSeAXf9Urwc1tseh1sW3pNz6z36vEYYYAGTNAnDWf\"]},\"contracts/interfaces/IPoolInitializer.sol\":{\"keccak256\":\"0x8229e43304f2c2412aaca27ea314ee78f3bcaca31124017b3bc4729c383594f1\",\"license\":\"GPL-2.0-or-later\",\"urls\":[\"bzz-raw://3beed69fd04dd1ad59e9c083914ca47fd1f3c0bf53e50a62c772597a25191d78\",\"dweb:/ipfs/QmZ7vuCn86Gg6kopXVw5hBRPemcqtWykke8zUskZArq8aP\"]},\"contracts/interfaces/ISelfPermit.sol\":{\"keccak256\":\"0xb442ad31c8fef5c47ebb82b3b3f906d0a5dbca8eb26db90b287a4825bf53d595\",\"license\":\"GPL-2.0-or-later\",\"urls\":[\"bzz-raw://6e36e6e894083ad07e2ba62977a06db0874b8ed1f6eac705f4c9d89a410f54ea\",\"dweb:/ipfs/QmWLWTuKrcCzxZeedLpUG3c8jjFLs5gLmvt35Ysp2uc9c6\"]},\"contracts/interfaces/IV3Migrator.sol\":{\"keccak256\":\"0xcc9095af5736016d4aa775ef7ab99306c8262954a59b9829a073455c2c61c236\",\"license\":\"GPL-2.0-or-later\",\"urls\":[\"bzz-raw://812d269fc93db8ec94d8bb7297bb4f04faf90ab90ded0364c930db20860bd1c4\",\"dweb:/ipfs/Qme9ZDXEdRF6hdNwWUYbqshgDDEKr2wd3wbCDnwq1Rm4ud\"]}},\"version\":1}",
+					"storageLayout": {
+						"storage": [],
+						"types": null
+					},
+					"userdoc": {
+						"kind": "user",
+						"methods": {
+							"createAndInitializePoolIfNecessary(address,address,uint24,uint160)": {
+								"notice": "Creates a new pool if it does not exist, then initializes if not initialized"
+							},
+							"migrate((address,uint256,uint8,address,address,uint24,int24,int24,uint256,uint256,address,uint256,bool))": {
+								"notice": "Migrates liquidity to v3 by burning v2 liquidity and minting a new position for v3"
+							},
+							"multicall(bytes[])": {
+								"notice": "Call multiple functions in the current contract and return the data from all of them if they all succeed"
+							},
+							"selfPermit(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"notice": "Permits this contract to spend a given token from `msg.sender`"
+							},
+							"selfPermitAllowed(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"notice": "Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter"
+							},
+							"selfPermitAllowedIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"notice": "Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter"
+							},
+							"selfPermitIfNecessary(address,uint256,uint256,uint8,bytes32,bytes32)": {
+								"notice": "Permits this contract to spend a given token from `msg.sender`"
+							}
+						},
+						"notice": "Enables migration of liqudity from Uniswap v2-compatible pairs into Uniswap v3 pools",
+						"version": 1
+					}
+				}
+			}
+		},
+		"sources": {
+			"contracts/interfaces/IMulticall.sol": {
+				"ast": {
+					"absolutePath": "contracts/interfaces/IMulticall.sol",
+					"exportedSymbols": {
+						"IMulticall": [
+							14
+						]
+					},
+					"id": 15,
+					"license": "GPL-2.0-or-later",
+					"nodeType": "SourceUnit",
+					"nodes": [
+						{
+							"id": 1,
+							"literals": [
+								"solidity",
+								">=",
+								"0.7",
+								".5"
+							],
+							"nodeType": "PragmaDirective",
+							"src": "46:24:0"
+						},
+						{
+							"id": 2,
+							"literals": [
+								"abicoder",
+								"v2"
+							],
+							"nodeType": "PragmaDirective",
+							"src": "72:19:0"
+						},
+						{
+							"abstract": false,
+							"baseContracts": [],
+							"canonicalName": "IMulticall",
+							"contractDependencies": [],
+							"contractKind": "interface",
+							"documentation": {
+								"id": 3,
+								"nodeType": "StructuredDocumentation",
+								"src": "95:111:0",
+								"text": "@title Multicall interface\n @notice Enables calling multiple methods in a single call to the contract"
+							},
+							"fullyImplemented": false,
+							"id": 14,
+							"linearizedBaseContracts": [
+								14
+							],
+							"name": "IMulticall",
+							"nameLocation": "216:10:0",
+							"nodeType": "ContractDefinition",
+							"nodes": [
+								{
+									"documentation": {
+										"id": 4,
+										"nodeType": "StructuredDocumentation",
+										"src": "234:381:0",
+										"text": "@notice Call multiple functions in the current contract and return the data from all of them if they all succeed\n @dev The `msg.value` should not be trusted for any method callable from multicall.\n @param data The encoded function data for each of the calls to make to this contract\n @return results The results from each of the calls passed in via data"
+									},
+									"functionSelector": "ac9650d8",
+									"id": 13,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "multicall",
+									"nameLocation": "630:9:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 8,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 7,
+												"mutability": "mutable",
+												"name": "data",
+												"nameLocation": "657:4:0",
+												"nodeType": "VariableDeclaration",
+												"scope": 13,
+												"src": "640:21:0",
+												"stateVariable": false,
+												"storageLocation": "calldata",
+												"typeDescriptions": {
+													"typeIdentifier": "t_array$_t_bytes_calldata_ptr_$dyn_calldata_ptr",
+													"typeString": "bytes[]"
+												},
+												"typeName": {
+													"baseType": {
+														"id": 5,
+														"name": "bytes",
+														"nodeType": "ElementaryTypeName",
+														"src": "640:5:0",
+														"typeDescriptions": {
+															"typeIdentifier": "t_bytes_storage_ptr",
+															"typeString": "bytes"
+														}
+													},
+													"id": 6,
+													"nodeType": "ArrayTypeName",
+													"src": "640:7:0",
+													"typeDescriptions": {
+														"typeIdentifier": "t_array$_t_bytes_storage_$dyn_storage_ptr",
+														"typeString": "bytes[]"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "639:23:0"
+									},
+									"returnParameters": {
+										"id": 12,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 11,
+												"mutability": "mutable",
+												"name": "results",
+												"nameLocation": "704:7:0",
+												"nodeType": "VariableDeclaration",
+												"scope": 13,
+												"src": "689:22:0",
+												"stateVariable": false,
+												"storageLocation": "memory",
+												"typeDescriptions": {
+													"typeIdentifier": "t_array$_t_bytes_memory_ptr_$dyn_memory_ptr",
+													"typeString": "bytes[]"
+												},
+												"typeName": {
+													"baseType": {
+														"id": 9,
+														"name": "bytes",
+														"nodeType": "ElementaryTypeName",
+														"src": "689:5:0",
+														"typeDescriptions": {
+															"typeIdentifier": "t_bytes_storage_ptr",
+															"typeString": "bytes"
+														}
+													},
+													"id": 10,
+													"nodeType": "ArrayTypeName",
+													"src": "689:7:0",
+													"typeDescriptions": {
+														"typeIdentifier": "t_array$_t_bytes_storage_$dyn_storage_ptr",
+														"typeString": "bytes[]"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "688:24:0"
+									},
+									"scope": 14,
+									"src": "621:92:0",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								}
+							],
+							"scope": 15,
+							"src": "206:510:0",
+							"usedErrors": [],
+							"usedEvents": []
+						}
+					],
+					"src": "46:672:0"
+				},
+				"id": 0
+			},
+			"contracts/interfaces/IPoolInitializer.sol": {
+				"ast": {
+					"absolutePath": "contracts/interfaces/IPoolInitializer.sol",
+					"exportedSymbols": {
+						"IPoolInitializer": [
+							33
+						]
+					},
+					"id": 34,
+					"license": "GPL-2.0-or-later",
+					"nodeType": "SourceUnit",
+					"nodes": [
+						{
+							"id": 16,
+							"literals": [
+								"solidity",
+								">=",
+								"0.7",
+								".5"
+							],
+							"nodeType": "PragmaDirective",
+							"src": "46:24:1"
+						},
+						{
+							"id": 17,
+							"literals": [
+								"abicoder",
+								"v2"
+							],
+							"nodeType": "PragmaDirective",
+							"src": "72:19:1"
+						},
+						{
+							"abstract": false,
+							"baseContracts": [],
+							"canonicalName": "IPoolInitializer",
+							"contractDependencies": [],
+							"contractKind": "interface",
+							"documentation": {
+								"id": 18,
+								"nodeType": "StructuredDocumentation",
+								"src": "95:197:1",
+								"text": "@title Creates and initializes V3 Pools\n @notice Provides a method for creating and initializing a pool, if necessary, for bundling with other methods that\n require the pool to exist."
+							},
+							"fullyImplemented": false,
+							"id": 33,
+							"linearizedBaseContracts": [
+								33
+							],
+							"name": "IPoolInitializer",
+							"nameLocation": "302:16:1",
+							"nodeType": "ContractDefinition",
+							"nodes": [
+								{
+									"documentation": {
+										"id": 19,
+										"nodeType": "StructuredDocumentation",
+										"src": "326:654:1",
+										"text": "@notice Creates a new pool if it does not exist, then initializes if not initialized\n @dev This method can be bundled with others via IMulticall for the first action (e.g. mint) performed against a pool\n @param token0 The contract address of token0 of the pool\n @param token1 The contract address of token1 of the pool\n @param fee The fee amount of the v3 pool for the specified token pair\n @param sqrtPriceX96 The initial square root price of the pool as a Q64.96 value\n @return pool Returns the pool address based on the pair of tokens and fee, will return the newly created pool address if necessary"
+									},
+									"functionSelector": "13ead562",
+									"id": 32,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "createAndInitializePoolIfNecessary",
+									"nameLocation": "995:34:1",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 28,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 21,
+												"mutability": "mutable",
+												"name": "token0",
+												"nameLocation": "1048:6:1",
+												"nodeType": "VariableDeclaration",
+												"scope": 32,
+												"src": "1040:14:1",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												},
+												"typeName": {
+													"id": 20,
+													"name": "address",
+													"nodeType": "ElementaryTypeName",
+													"src": "1040:7:1",
+													"stateMutability": "nonpayable",
+													"typeDescriptions": {
+														"typeIdentifier": "t_address",
+														"typeString": "address"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 23,
+												"mutability": "mutable",
+												"name": "token1",
+												"nameLocation": "1073:6:1",
+												"nodeType": "VariableDeclaration",
+												"scope": 32,
+												"src": "1065:14:1",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												},
+												"typeName": {
+													"id": 22,
+													"name": "address",
+													"nodeType": "ElementaryTypeName",
+													"src": "1065:7:1",
+													"stateMutability": "nonpayable",
+													"typeDescriptions": {
+														"typeIdentifier": "t_address",
+														"typeString": "address"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 25,
+												"mutability": "mutable",
+												"name": "fee",
+												"nameLocation": "1097:3:1",
+												"nodeType": "VariableDeclaration",
+												"scope": 32,
+												"src": "1090:10:1",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint24",
+													"typeString": "uint24"
+												},
+												"typeName": {
+													"id": 24,
+													"name": "uint24",
+													"nodeType": "ElementaryTypeName",
+													"src": "1090:6:1",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint24",
+														"typeString": "uint24"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 27,
+												"mutability": "mutable",
+												"name": "sqrtPriceX96",
+												"nameLocation": "1119:12:1",
+												"nodeType": "VariableDeclaration",
+												"scope": 32,
+												"src": "1111:20:1",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint160",
+													"typeString": "uint160"
+												},
+												"typeName": {
+													"id": 26,
+													"name": "uint160",
+													"nodeType": "ElementaryTypeName",
+													"src": "1111:7:1",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint160",
+														"typeString": "uint160"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "1029:109:1"
+									},
+									"returnParameters": {
+										"id": 31,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 30,
+												"mutability": "mutable",
+												"name": "pool",
+												"nameLocation": "1173:4:1",
+												"nodeType": "VariableDeclaration",
+												"scope": 32,
+												"src": "1165:12:1",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												},
+												"typeName": {
+													"id": 29,
+													"name": "address",
+													"nodeType": "ElementaryTypeName",
+													"src": "1165:7:1",
+													"stateMutability": "nonpayable",
+													"typeDescriptions": {
+														"typeIdentifier": "t_address",
+														"typeString": "address"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "1164:14:1"
+									},
+									"scope": 33,
+									"src": "986:193:1",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								}
+							],
+							"scope": 34,
+							"src": "292:890:1",
+							"usedErrors": [],
+							"usedEvents": []
+						}
+					],
+					"src": "46:1138:1"
+				},
+				"id": 1
+			},
+			"contracts/interfaces/ISelfPermit.sol": {
+				"ast": {
+					"absolutePath": "contracts/interfaces/ISelfPermit.sol",
+					"exportedSymbols": {
+						"ISelfPermit": [
+							101
+						]
+					},
+					"id": 102,
+					"license": "GPL-2.0-or-later",
+					"nodeType": "SourceUnit",
+					"nodes": [
+						{
+							"id": 35,
+							"literals": [
+								"solidity",
+								">=",
+								"0.7",
+								".5"
+							],
+							"nodeType": "PragmaDirective",
+							"src": "46:24:2"
+						},
+						{
+							"abstract": false,
+							"baseContracts": [],
+							"canonicalName": "ISelfPermit",
+							"contractDependencies": [],
+							"contractKind": "interface",
+							"documentation": {
+								"id": 36,
+								"nodeType": "StructuredDocumentation",
+								"src": "74:119:2",
+								"text": "@title Self Permit\n @notice Functionality to call permit on any EIP-2612-compliant token for use in the route"
+							},
+							"fullyImplemented": false,
+							"id": 101,
+							"linearizedBaseContracts": [
+								101
+							],
+							"name": "ISelfPermit",
+							"nameLocation": "203:11:2",
+							"nodeType": "ContractDefinition",
+							"nodes": [
+								{
+									"documentation": {
+										"id": 37,
+										"nodeType": "StructuredDocumentation",
+										"src": "222:670:2",
+										"text": "@notice Permits this contract to spend a given token from `msg.sender`\n @dev The `owner` is always msg.sender and the `spender` is always address(this).\n @param token The address of the token spent\n @param value The amount that can be spent of token\n @param deadline A timestamp, the current blocktime must be less than or equal to this timestamp\n @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`\n @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`\n @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`"
+									},
+									"functionSelector": "f3995c67",
+									"id": 52,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "selfPermit",
+									"nameLocation": "907:10:2",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 50,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 39,
+												"mutability": "mutable",
+												"name": "token",
+												"nameLocation": "936:5:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 52,
+												"src": "928:13:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												},
+												"typeName": {
+													"id": 38,
+													"name": "address",
+													"nodeType": "ElementaryTypeName",
+													"src": "928:7:2",
+													"stateMutability": "nonpayable",
+													"typeDescriptions": {
+														"typeIdentifier": "t_address",
+														"typeString": "address"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 41,
+												"mutability": "mutable",
+												"name": "value",
+												"nameLocation": "960:5:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 52,
+												"src": "952:13:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 40,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "952:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 43,
+												"mutability": "mutable",
+												"name": "deadline",
+												"nameLocation": "984:8:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 52,
+												"src": "976:16:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 42,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "976:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 45,
+												"mutability": "mutable",
+												"name": "v",
+												"nameLocation": "1009:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 52,
+												"src": "1003:7:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint8",
+													"typeString": "uint8"
+												},
+												"typeName": {
+													"id": 44,
+													"name": "uint8",
+													"nodeType": "ElementaryTypeName",
+													"src": "1003:5:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint8",
+														"typeString": "uint8"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 47,
+												"mutability": "mutable",
+												"name": "r",
+												"nameLocation": "1029:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 52,
+												"src": "1021:9:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bytes32",
+													"typeString": "bytes32"
+												},
+												"typeName": {
+													"id": 46,
+													"name": "bytes32",
+													"nodeType": "ElementaryTypeName",
+													"src": "1021:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_bytes32",
+														"typeString": "bytes32"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 49,
+												"mutability": "mutable",
+												"name": "s",
+												"nameLocation": "1049:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 52,
+												"src": "1041:9:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bytes32",
+													"typeString": "bytes32"
+												},
+												"typeName": {
+													"id": 48,
+													"name": "bytes32",
+													"nodeType": "ElementaryTypeName",
+													"src": "1041:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_bytes32",
+														"typeString": "bytes32"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "917:140:2"
+									},
+									"returnParameters": {
+										"id": 51,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "1074:0:2"
+									},
+									"scope": 101,
+									"src": "898:177:2",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 53,
+										"nodeType": "StructuredDocumentation",
+										"src": "1083:787:2",
+										"text": "@notice Permits this contract to spend a given token from `msg.sender`\n @dev The `owner` is always msg.sender and the `spender` is always address(this).\n Can be used instead of #selfPermit to prevent calls from failing due to a frontrun of a call to #selfPermit\n @param token The address of the token spent\n @param value The amount that can be spent of token\n @param deadline A timestamp, the current blocktime must be less than or equal to this timestamp\n @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`\n @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`\n @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`"
+									},
+									"functionSelector": "c2e3140a",
+									"id": 68,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "selfPermitIfNecessary",
+									"nameLocation": "1885:21:2",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 66,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 55,
+												"mutability": "mutable",
+												"name": "token",
+												"nameLocation": "1925:5:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 68,
+												"src": "1917:13:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												},
+												"typeName": {
+													"id": 54,
+													"name": "address",
+													"nodeType": "ElementaryTypeName",
+													"src": "1917:7:2",
+													"stateMutability": "nonpayable",
+													"typeDescriptions": {
+														"typeIdentifier": "t_address",
+														"typeString": "address"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 57,
+												"mutability": "mutable",
+												"name": "value",
+												"nameLocation": "1949:5:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 68,
+												"src": "1941:13:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 56,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "1941:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 59,
+												"mutability": "mutable",
+												"name": "deadline",
+												"nameLocation": "1973:8:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 68,
+												"src": "1965:16:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 58,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "1965:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 61,
+												"mutability": "mutable",
+												"name": "v",
+												"nameLocation": "1998:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 68,
+												"src": "1992:7:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint8",
+													"typeString": "uint8"
+												},
+												"typeName": {
+													"id": 60,
+													"name": "uint8",
+													"nodeType": "ElementaryTypeName",
+													"src": "1992:5:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint8",
+														"typeString": "uint8"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 63,
+												"mutability": "mutable",
+												"name": "r",
+												"nameLocation": "2018:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 68,
+												"src": "2010:9:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bytes32",
+													"typeString": "bytes32"
+												},
+												"typeName": {
+													"id": 62,
+													"name": "bytes32",
+													"nodeType": "ElementaryTypeName",
+													"src": "2010:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_bytes32",
+														"typeString": "bytes32"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 65,
+												"mutability": "mutable",
+												"name": "s",
+												"nameLocation": "2038:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 68,
+												"src": "2030:9:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bytes32",
+													"typeString": "bytes32"
+												},
+												"typeName": {
+													"id": 64,
+													"name": "bytes32",
+													"nodeType": "ElementaryTypeName",
+													"src": "2030:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_bytes32",
+														"typeString": "bytes32"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "1906:140:2"
+									},
+									"returnParameters": {
+										"id": 67,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "2063:0:2"
+									},
+									"scope": 101,
+									"src": "1876:188:2",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 69,
+										"nodeType": "StructuredDocumentation",
+										"src": "2072:677:2",
+										"text": "@notice Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter\n @dev The `owner` is always msg.sender and the `spender` is always address(this)\n @param token The address of the token spent\n @param nonce The current nonce of the owner\n @param expiry The timestamp at which the permit is no longer valid\n @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`\n @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`\n @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`"
+									},
+									"functionSelector": "4659a494",
+									"id": 84,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "selfPermitAllowed",
+									"nameLocation": "2764:17:2",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 82,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 71,
+												"mutability": "mutable",
+												"name": "token",
+												"nameLocation": "2800:5:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 84,
+												"src": "2792:13:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												},
+												"typeName": {
+													"id": 70,
+													"name": "address",
+													"nodeType": "ElementaryTypeName",
+													"src": "2792:7:2",
+													"stateMutability": "nonpayable",
+													"typeDescriptions": {
+														"typeIdentifier": "t_address",
+														"typeString": "address"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 73,
+												"mutability": "mutable",
+												"name": "nonce",
+												"nameLocation": "2824:5:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 84,
+												"src": "2816:13:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 72,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "2816:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 75,
+												"mutability": "mutable",
+												"name": "expiry",
+												"nameLocation": "2848:6:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 84,
+												"src": "2840:14:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 74,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "2840:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 77,
+												"mutability": "mutable",
+												"name": "v",
+												"nameLocation": "2871:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 84,
+												"src": "2865:7:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint8",
+													"typeString": "uint8"
+												},
+												"typeName": {
+													"id": 76,
+													"name": "uint8",
+													"nodeType": "ElementaryTypeName",
+													"src": "2865:5:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint8",
+														"typeString": "uint8"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 79,
+												"mutability": "mutable",
+												"name": "r",
+												"nameLocation": "2891:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 84,
+												"src": "2883:9:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bytes32",
+													"typeString": "bytes32"
+												},
+												"typeName": {
+													"id": 78,
+													"name": "bytes32",
+													"nodeType": "ElementaryTypeName",
+													"src": "2883:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_bytes32",
+														"typeString": "bytes32"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 81,
+												"mutability": "mutable",
+												"name": "s",
+												"nameLocation": "2911:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 84,
+												"src": "2903:9:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bytes32",
+													"typeString": "bytes32"
+												},
+												"typeName": {
+													"id": 80,
+													"name": "bytes32",
+													"nodeType": "ElementaryTypeName",
+													"src": "2903:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_bytes32",
+														"typeString": "bytes32"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "2781:138:2"
+									},
+									"returnParameters": {
+										"id": 83,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "2936:0:2"
+									},
+									"scope": 101,
+									"src": "2755:182:2",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 85,
+										"nodeType": "StructuredDocumentation",
+										"src": "2945:809:2",
+										"text": "@notice Permits this contract to spend the sender's tokens for permit signatures that have the `allowed` parameter\n @dev The `owner` is always msg.sender and the `spender` is always address(this)\n Can be used instead of #selfPermitAllowed to prevent calls from failing due to a frontrun of a call to #selfPermitAllowed.\n @param token The address of the token spent\n @param nonce The current nonce of the owner\n @param expiry The timestamp at which the permit is no longer valid\n @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`\n @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`\n @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`"
+									},
+									"functionSelector": "a4a78f0c",
+									"id": 100,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "selfPermitAllowedIfNecessary",
+									"nameLocation": "3769:28:2",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 98,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 87,
+												"mutability": "mutable",
+												"name": "token",
+												"nameLocation": "3816:5:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 100,
+												"src": "3808:13:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												},
+												"typeName": {
+													"id": 86,
+													"name": "address",
+													"nodeType": "ElementaryTypeName",
+													"src": "3808:7:2",
+													"stateMutability": "nonpayable",
+													"typeDescriptions": {
+														"typeIdentifier": "t_address",
+														"typeString": "address"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 89,
+												"mutability": "mutable",
+												"name": "nonce",
+												"nameLocation": "3840:5:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 100,
+												"src": "3832:13:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 88,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "3832:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 91,
+												"mutability": "mutable",
+												"name": "expiry",
+												"nameLocation": "3864:6:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 100,
+												"src": "3856:14:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 90,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "3856:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 93,
+												"mutability": "mutable",
+												"name": "v",
+												"nameLocation": "3887:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 100,
+												"src": "3881:7:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint8",
+													"typeString": "uint8"
+												},
+												"typeName": {
+													"id": 92,
+													"name": "uint8",
+													"nodeType": "ElementaryTypeName",
+													"src": "3881:5:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint8",
+														"typeString": "uint8"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 95,
+												"mutability": "mutable",
+												"name": "r",
+												"nameLocation": "3907:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 100,
+												"src": "3899:9:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bytes32",
+													"typeString": "bytes32"
+												},
+												"typeName": {
+													"id": 94,
+													"name": "bytes32",
+													"nodeType": "ElementaryTypeName",
+													"src": "3899:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_bytes32",
+														"typeString": "bytes32"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 97,
+												"mutability": "mutable",
+												"name": "s",
+												"nameLocation": "3927:1:2",
+												"nodeType": "VariableDeclaration",
+												"scope": 100,
+												"src": "3919:9:2",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bytes32",
+													"typeString": "bytes32"
+												},
+												"typeName": {
+													"id": 96,
+													"name": "bytes32",
+													"nodeType": "ElementaryTypeName",
+													"src": "3919:7:2",
+													"typeDescriptions": {
+														"typeIdentifier": "t_bytes32",
+														"typeString": "bytes32"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "3797:138:2"
+									},
+									"returnParameters": {
+										"id": 99,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "3952:0:2"
+									},
+									"scope": 101,
+									"src": "3760:193:2",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								}
+							],
+							"scope": 102,
+							"src": "193:3763:2",
+							"usedErrors": [],
+							"usedEvents": []
+						}
+					],
+					"src": "46:3912:2"
+				},
+				"id": 2
+			},
+			"contracts/interfaces/IV3Migrator.sol": {
+				"ast": {
+					"absolutePath": "contracts/interfaces/IV3Migrator.sol",
+					"exportedSymbols": {
+						"IMulticall": [
+							14
+						],
+						"IPoolInitializer": [
+							33
+						],
+						"ISelfPermit": [
+							101
+						],
+						"IV3Migrator": [
+							149
+						]
+					},
+					"id": 150,
+					"license": "GPL-2.0-or-later",
+					"nodeType": "SourceUnit",
+					"nodes": [
+						{
+							"id": 103,
+							"literals": [
+								"solidity",
+								">=",
+								"0.7",
+								".5"
+							],
+							"nodeType": "PragmaDirective",
+							"src": "46:24:3"
+						},
+						{
+							"id": 104,
+							"literals": [
+								"abicoder",
+								"v2"
+							],
+							"nodeType": "PragmaDirective",
+							"src": "72:19:3"
+						},
+						{
+							"absolutePath": "contracts/interfaces/IMulticall.sol",
+							"file": "./IMulticall.sol",
+							"id": 105,
+							"nameLocation": "-1:-1:-1",
+							"nodeType": "ImportDirective",
+							"scope": 150,
+							"sourceUnit": 15,
+							"src": "95:26:3",
+							"symbolAliases": [],
+							"unitAlias": ""
+						},
+						{
+							"absolutePath": "contracts/interfaces/ISelfPermit.sol",
+							"file": "./ISelfPermit.sol",
+							"id": 106,
+							"nameLocation": "-1:-1:-1",
+							"nodeType": "ImportDirective",
+							"scope": 150,
+							"sourceUnit": 102,
+							"src": "123:27:3",
+							"symbolAliases": [],
+							"unitAlias": ""
+						},
+						{
+							"absolutePath": "contracts/interfaces/IPoolInitializer.sol",
+							"file": "./IPoolInitializer.sol",
+							"id": 107,
+							"nameLocation": "-1:-1:-1",
+							"nodeType": "ImportDirective",
+							"scope": 150,
+							"sourceUnit": 34,
+							"src": "152:32:3",
+							"symbolAliases": [],
+							"unitAlias": ""
+						},
+						{
+							"abstract": false,
+							"baseContracts": [
+								{
+									"baseName": {
+										"id": 109,
+										"name": "IMulticall",
+										"nameLocations": [
+											"335:10:3"
+										],
+										"nodeType": "IdentifierPath",
+										"referencedDeclaration": 14,
+										"src": "335:10:3"
+									},
+									"id": 110,
+									"nodeType": "InheritanceSpecifier",
+									"src": "335:10:3"
+								},
+								{
+									"baseName": {
+										"id": 111,
+										"name": "ISelfPermit",
+										"nameLocations": [
+											"347:11:3"
+										],
+										"nodeType": "IdentifierPath",
+										"referencedDeclaration": 101,
+										"src": "347:11:3"
+									},
+									"id": 112,
+									"nodeType": "InheritanceSpecifier",
+									"src": "347:11:3"
+								},
+								{
+									"baseName": {
+										"id": 113,
+										"name": "IPoolInitializer",
+										"nameLocations": [
+											"360:16:3"
+										],
+										"nodeType": "IdentifierPath",
+										"referencedDeclaration": 33,
+										"src": "360:16:3"
+									},
+									"id": 114,
+									"nodeType": "InheritanceSpecifier",
+									"src": "360:16:3"
+								}
+							],
+							"canonicalName": "IV3Migrator",
+							"contractDependencies": [],
+							"contractKind": "interface",
+							"documentation": {
+								"id": 108,
+								"nodeType": "StructuredDocumentation",
+								"src": "188:122:3",
+								"text": "@title V3 Migrator\n @notice Enables migration of liqudity from Uniswap v2-compatible pairs into Uniswap v3 pools"
+							},
+							"fullyImplemented": false,
+							"id": 149,
+							"linearizedBaseContracts": [
+								149,
+								33,
+								101,
+								14
+							],
+							"name": "IV3Migrator",
+							"nameLocation": "320:11:3",
+							"nodeType": "ContractDefinition",
+							"nodes": [
+								{
+									"canonicalName": "IV3Migrator.MigrateParams",
+									"id": 141,
+									"members": [
+										{
+											"constant": false,
+											"id": 116,
+											"mutability": "mutable",
+											"name": "pair",
+											"nameLocation": "424:4:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "416:12:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_address",
+												"typeString": "address"
+											},
+											"typeName": {
+												"id": 115,
+												"name": "address",
+												"nodeType": "ElementaryTypeName",
+												"src": "416:7:3",
+												"stateMutability": "nonpayable",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 118,
+											"mutability": "mutable",
+											"name": "liquidityToMigrate",
+											"nameLocation": "481:18:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "473:26:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_uint256",
+												"typeString": "uint256"
+											},
+											"typeName": {
+												"id": 117,
+												"name": "uint256",
+												"nodeType": "ElementaryTypeName",
+												"src": "473:7:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 120,
+											"mutability": "mutable",
+											"name": "percentageToMigrate",
+											"nameLocation": "556:19:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "550:25:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_uint8",
+												"typeString": "uint8"
+											},
+											"typeName": {
+												"id": 119,
+												"name": "uint8",
+												"nodeType": "ElementaryTypeName",
+												"src": "550:5:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint8",
+													"typeString": "uint8"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 122,
+											"mutability": "mutable",
+											"name": "token0",
+											"nameLocation": "633:6:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "625:14:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_address",
+												"typeString": "address"
+											},
+											"typeName": {
+												"id": 121,
+												"name": "address",
+												"nodeType": "ElementaryTypeName",
+												"src": "625:7:3",
+												"stateMutability": "nonpayable",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 124,
+											"mutability": "mutable",
+											"name": "token1",
+											"nameLocation": "658:6:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "650:14:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_address",
+												"typeString": "address"
+											},
+											"typeName": {
+												"id": 123,
+												"name": "address",
+												"nodeType": "ElementaryTypeName",
+												"src": "650:7:3",
+												"stateMutability": "nonpayable",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 126,
+											"mutability": "mutable",
+											"name": "fee",
+											"nameLocation": "682:3:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "675:10:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_uint24",
+												"typeString": "uint24"
+											},
+											"typeName": {
+												"id": 125,
+												"name": "uint24",
+												"nodeType": "ElementaryTypeName",
+												"src": "675:6:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint24",
+													"typeString": "uint24"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 128,
+											"mutability": "mutable",
+											"name": "tickLower",
+											"nameLocation": "702:9:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "696:15:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_int24",
+												"typeString": "int24"
+											},
+											"typeName": {
+												"id": 127,
+												"name": "int24",
+												"nodeType": "ElementaryTypeName",
+												"src": "696:5:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_int24",
+													"typeString": "int24"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 130,
+											"mutability": "mutable",
+											"name": "tickUpper",
+											"nameLocation": "728:9:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "722:15:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_int24",
+												"typeString": "int24"
+											},
+											"typeName": {
+												"id": 129,
+												"name": "int24",
+												"nodeType": "ElementaryTypeName",
+												"src": "722:5:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_int24",
+													"typeString": "int24"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 132,
+											"mutability": "mutable",
+											"name": "amount0Min",
+											"nameLocation": "756:10:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "748:18:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_uint256",
+												"typeString": "uint256"
+											},
+											"typeName": {
+												"id": 131,
+												"name": "uint256",
+												"nodeType": "ElementaryTypeName",
+												"src": "748:7:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 134,
+											"mutability": "mutable",
+											"name": "amount1Min",
+											"nameLocation": "830:10:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "822:18:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_uint256",
+												"typeString": "uint256"
+											},
+											"typeName": {
+												"id": 133,
+												"name": "uint256",
+												"nodeType": "ElementaryTypeName",
+												"src": "822:7:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 136,
+											"mutability": "mutable",
+											"name": "recipient",
+											"nameLocation": "904:9:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "896:17:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_address",
+												"typeString": "address"
+											},
+											"typeName": {
+												"id": 135,
+												"name": "address",
+												"nodeType": "ElementaryTypeName",
+												"src": "896:7:3",
+												"stateMutability": "nonpayable",
+												"typeDescriptions": {
+													"typeIdentifier": "t_address",
+													"typeString": "address"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 138,
+											"mutability": "mutable",
+											"name": "deadline",
+											"nameLocation": "932:8:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "924:16:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_uint256",
+												"typeString": "uint256"
+											},
+											"typeName": {
+												"id": 137,
+												"name": "uint256",
+												"nodeType": "ElementaryTypeName",
+												"src": "924:7:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												}
+											},
+											"visibility": "internal"
+										},
+										{
+											"constant": false,
+											"id": 140,
+											"mutability": "mutable",
+											"name": "refundAsETH",
+											"nameLocation": "956:11:3",
+											"nodeType": "VariableDeclaration",
+											"scope": 141,
+											"src": "951:16:3",
+											"stateVariable": false,
+											"storageLocation": "default",
+											"typeDescriptions": {
+												"typeIdentifier": "t_bool",
+												"typeString": "bool"
+											},
+											"typeName": {
+												"id": 139,
+												"name": "bool",
+												"nodeType": "ElementaryTypeName",
+												"src": "951:4:3",
+												"typeDescriptions": {
+													"typeIdentifier": "t_bool",
+													"typeString": "bool"
+												}
+											},
+											"visibility": "internal"
+										}
+									],
+									"name": "MigrateParams",
+									"nameLocation": "391:13:3",
+									"nodeType": "StructDefinition",
+									"scope": 149,
+									"src": "384:591:3",
+									"visibility": "public"
+								},
+								{
+									"documentation": {
+										"id": 142,
+										"nodeType": "StructuredDocumentation",
+										"src": "983:553:3",
+										"text": "@notice Migrates liquidity to v3 by burning v2 liquidity and minting a new position for v3\n @dev Slippage protection is enforced via `amount{0,1}Min`, which should be a discount of the expected values of\n the maximum amount of v3 liquidity that the v2 liquidity can get. For the special case of migrating to an\n out-of-range position, `amount{0,1}Min` may be set to 0, enforcing that the position remains out of range\n @param params The params necessary to migrate v2 liquidity, encoded as `MigrateParams` in calldata"
+									},
+									"functionSelector": "d44f2bf2",
+									"id": 148,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "migrate",
+									"nameLocation": "1551:7:3",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 146,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 145,
+												"mutability": "mutable",
+												"name": "params",
+												"nameLocation": "1582:6:3",
+												"nodeType": "VariableDeclaration",
+												"scope": 148,
+												"src": "1559:29:3",
+												"stateVariable": false,
+												"storageLocation": "calldata",
+												"typeDescriptions": {
+													"typeIdentifier": "t_struct$_MigrateParams_$141_calldata_ptr",
+													"typeString": "struct IV3Migrator.MigrateParams"
+												},
+												"typeName": {
+													"id": 144,
+													"nodeType": "UserDefinedTypeName",
+													"pathNode": {
+														"id": 143,
+														"name": "MigrateParams",
+														"nameLocations": [
+															"1559:13:3"
+														],
+														"nodeType": "IdentifierPath",
+														"referencedDeclaration": 141,
+														"src": "1559:13:3"
+													},
+													"referencedDeclaration": 141,
+													"src": "1559:13:3",
+													"typeDescriptions": {
+														"typeIdentifier": "t_struct$_MigrateParams_$141_storage_ptr",
+														"typeString": "struct IV3Migrator.MigrateParams"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "1558:31:3"
+									},
+									"returnParameters": {
+										"id": 147,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "1598:0:3"
+									},
+									"scope": 149,
+									"src": "1542:57:3",
+									"stateMutability": "nonpayable",
+									"virtual": false,
+									"visibility": "external"
+								}
+							],
+							"scope": 150,
+							"src": "310:1292:3",
+							"usedErrors": [],
+							"usedEvents": []
+						}
+					],
+					"src": "46:1558:3"
+				},
+				"id": 3
+			}
+		}
+	}
+}

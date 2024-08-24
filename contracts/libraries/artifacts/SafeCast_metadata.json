@@ -1,0 +1,47 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"title": "Safe casting methods",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"notice": "Contains methods for safely casting between types",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/libraries/SafeCast.sol": "SafeCast"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/libraries/SafeCast.sol": {
+			"keccak256": "0x2ce167ecfd192faccc43e6ab3eadf5dcaa4b57bc53215abea354e55b9149bd08",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://7b2699166ead0922ec7ef5c15aa0f931d9211e98f5d23408e5565a1539c7fd13",
+				"dweb:/ipfs/QmURByWGxXgSydaC5KdkCyef8twwZRMTAS1WQv2uJBoAL6"
+			]
+		}
+	},
+	"version": 1
+}

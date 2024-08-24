@@ -1,0 +1,201 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"name": "WETH9",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "factory",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "refundETH",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amountMinimum",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "recipient",
+						"type": "address"
+					}
+				],
+				"name": "sweepToken",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "amountMinimum",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "recipient",
+						"type": "address"
+					}
+				],
+				"name": "unwrapWETH9",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"stateMutability": "payable",
+				"type": "receive"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"refundETH()": {
+					"details": "Useful for bundling with mint or increase liquidity that uses ether, or exact output swaps that use ether for the input amount"
+				},
+				"sweepToken(address,uint256,address)": {
+					"details": "The amountMinimum parameter prevents malicious contracts from stealing the token from users",
+					"params": {
+						"amountMinimum": "The minimum amount of token required for a transfer",
+						"recipient": "The destination address of the token",
+						"token": "The contract address of the token which will be transferred to `recipient`"
+					}
+				},
+				"unwrapWETH9(uint256,address)": {
+					"details": "The amountMinimum parameter prevents malicious contracts from stealing WETH9 from users.",
+					"params": {
+						"amountMinimum": "The minimum amount of WETH9 to unwrap",
+						"recipient": "The address receiving ETH"
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"refundETH()": {
+					"notice": "Refunds any ETH balance held by this contract to the `msg.sender`"
+				},
+				"sweepToken(address,uint256,address)": {
+					"notice": "Transfers the full amount of a token held by this contract to recipient"
+				},
+				"unwrapWETH9(uint256,address)": {
+					"notice": "Unwraps the contract's WETH9 balance and sends it to recipient as ETH."
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/base/PeripheryPayments.sol": "PeripheryPayments"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+			"keccak256": "0xc6a8ff0ea489379b61faa647490411b80102578440ab9d84e9a957cc12164e70",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://0ea104e577e63faea3b69c415637e99e755dcbf64c5833d7140c35a714d6d90c",
+				"dweb:/ipfs/Qmau6x4Ns9XdyynRCNNp3RhLqijJjFm7z5fyZazfYFGYdq"
+			]
+		},
+		"contracts/base/PeripheryImmutableState.sol": {
+			"keccak256": "0x04488a49f7026e7dbf7ed43518d5da3f4158975d002dc0209561792e25ed7c80",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://ec747c304a69d530ef3d3d2da6caef48f276a00eabe2f47079db2f4b14d86e00",
+				"dweb:/ipfs/QmVBhtwsAB6FkV3FZkzM2nVruTmVJU4bwz5LxUStwLvECs"
+			]
+		},
+		"contracts/base/PeripheryPayments.sol": {
+			"keccak256": "0x56fafe0ff0dcdb1bcb9db4eb563321b121c34832d2ff4973da59f4d7d2e7fc66",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://0b7cf4d6a4125ed4d9f9f5c71340e81180aab2bc03689d8ab85c8f6acd939e23",
+				"dweb:/ipfs/QmQFz3MrSXP22xuy7zY3Mq2dLPNdWVip8wiKHYiguNp2xY"
+			]
+		},
+		"contracts/interfaces/IPeripheryImmutableState.sol": {
+			"keccak256": "0x23bb9671c6188fe826d384acb88182efc75c55ee7b6e7c5792de8f26581f0390",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://eb0b086015acc6d97e15e71a406e5ba393d188df878c71eaeb98b6ce4c99a353",
+				"dweb:/ipfs/QmWvXDAjebKmEJcvoB7S7e981zcvLvMLT11BLZZMf7D2rL"
+			]
+		},
+		"contracts/interfaces/IPeripheryPayments.sol": {
+			"keccak256": "0x8e0cdb6280728619c44a8220996512b81e85f6fa7bc5373db742ea953a81eda8",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://f0748123e32874d0e1e405a463fafcf98f686fac0055da2e13bfdaa0db917766",
+				"dweb:/ipfs/QmRZPF69X1e6T3yT2z8HTgzEtXHTVScqzoEMbfvp5Niggq"
+			]
+		},
+		"contracts/interfaces/external/IWETH9.sol": {
+			"keccak256": "0x78b9bcaa4d4707acfefd3677e3f9122bf276cc41b8377e99ddc31ddcb73b5700",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://8074da9d680ce6c07e71091dada47490c78d67b55879ebbbd4abf31ec846f0bc",
+				"dweb:/ipfs/QmYP49rdogg9TrL1Y2NsjL65AdMMu7eXVbnk6mA9sgfedr"
+			]
+		},
+		"contracts/libraries/TransferHelper.sol": {
+			"keccak256": "0xdd6bdb15d86cea91b32e431a3665fb02d89cd2e3ac364defdd4996c984f3b2ef",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://ea225076bf821ab6be89f44aeb024ada5ad96dd5b0a59721b57b3634a24da67a",
+				"dweb:/ipfs/QmThwpyvdpBuDGfaWQPvnNuTS2bbhr6zCaJB5pGHkxkuj7"
+			]
+		}
+	},
+	"version": 1
+}

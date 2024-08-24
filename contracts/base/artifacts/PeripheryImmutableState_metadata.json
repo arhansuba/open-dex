@@ -1,0 +1,96 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"name": "WETH9",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "factory",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"stateVariables": {
+				"WETH9": {
+					"return": "Returns the address of WETH9",
+					"returns": {
+						"_0": "Returns the address of WETH9"
+					}
+				},
+				"factory": {
+					"return": "Returns the address of the Uniswap V3 factory",
+					"returns": {
+						"_0": "Returns the address of the Uniswap V3 factory"
+					}
+				}
+			},
+			"title": "Immutable state",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"notice": "Immutable state used by periphery contracts",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/base/PeripheryImmutableState.sol": "PeripheryImmutableState"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/base/PeripheryImmutableState.sol": {
+			"keccak256": "0x04488a49f7026e7dbf7ed43518d5da3f4158975d002dc0209561792e25ed7c80",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://ec747c304a69d530ef3d3d2da6caef48f276a00eabe2f47079db2f4b14d86e00",
+				"dweb:/ipfs/QmVBhtwsAB6FkV3FZkzM2nVruTmVJU4bwz5LxUStwLvECs"
+			]
+		},
+		"contracts/interfaces/IPeripheryImmutableState.sol": {
+			"keccak256": "0x23bb9671c6188fe826d384acb88182efc75c55ee7b6e7c5792de8f26581f0390",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://eb0b086015acc6d97e15e71a406e5ba393d188df878c71eaeb98b6ce4c99a353",
+				"dweb:/ipfs/QmWvXDAjebKmEJcvoB7S7e981zcvLvMLT11BLZZMf7D2rL"
+			]
+		}
+	},
+	"version": 1
+}

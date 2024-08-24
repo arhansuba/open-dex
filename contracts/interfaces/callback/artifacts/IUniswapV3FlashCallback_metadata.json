@@ -1,0 +1,84 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "fee0",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "fee1",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					}
+				],
+				"name": "uniswapV3FlashCallback",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"uniswapV3FlashCallback(uint256,uint256,bytes)": {
+					"details": "In the implementation you must repay the pool the tokens sent by flash plus the computed fee amounts. The caller of this method must be checked to be a UniswapV3Pool deployed by the canonical UniswapV3Factory.",
+					"params": {
+						"data": "Any data passed through by the caller via the IUniswapV3PoolActions#flash call",
+						"fee0": "The fee amount in token0 due to the pool by the end of the flash",
+						"fee1": "The fee amount in token1 due to the pool by the end of the flash"
+					}
+				}
+			},
+			"title": "Callback for IUniswapV3PoolActions#flash",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"uniswapV3FlashCallback(uint256,uint256,bytes)": {
+					"notice": "Called to `msg.sender` after transferring to the recipient from IUniswapV3Pool#flash."
+				}
+			},
+			"notice": "Any contract that calls IUniswapV3PoolActions#flash must implement this interface",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/interfaces/callback/IUniswapV3FlashCallback.sol": "IUniswapV3FlashCallback"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/interfaces/callback/IUniswapV3FlashCallback.sol": {
+			"keccak256": "0x3bb3bd0d45e438e9c9222e633affeb2f708fa60c9d25bb59ed1dbea73be8f6e0",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://d2da5814b9acbc2ea6c07d663b05b9b9e5e323ba125250aeae66f61d2f41176c",
+				"dweb:/ipfs/QmQM6ekTRV9B2xzG9EfWACb3Z4aTGmbHs7QUsj9LGBn16J"
+			]
+		}
+	},
+	"version": 1
+}

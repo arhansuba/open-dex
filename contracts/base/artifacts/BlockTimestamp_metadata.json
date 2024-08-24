@@ -1,0 +1,47 @@
+{
+	"compiler": {
+		"version": "0.8.26+commit.8a97fa7a"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [],
+		"devdoc": {
+			"details": "Base contract that is overridden for tests",
+			"kind": "dev",
+			"methods": {},
+			"title": "Function for getting block timestamp",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/base/BlockTimestamp.sol": "BlockTimestamp"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/base/BlockTimestamp.sol": {
+			"keccak256": "0x6da5ebd85296063b5ee0679a9ff642e8d73b7ba163a4f30978d44a639aceb77d",
+			"license": "GPL-2.0-or-later",
+			"urls": [
+				"bzz-raw://fb2e7e936d8332b3d28473729f5285c2e0b21b8204c9ce51197167840fb33c0f",
+				"dweb:/ipfs/QmRnM2G7AE3RaN2cWgoE2vw7pRkeREzTeQ4v4vMAUZamS5"
+			]
+		}
+	},
+	"version": 1
+}
