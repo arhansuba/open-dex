@@ -9,17 +9,12 @@
 				"inputs": [
 					{
 						"internalType": "address",
-						"name": "_tokenA",
+						"name": "_factory",
 						"type": "address"
 					},
 					{
 						"internalType": "address",
-						"name": "_tokenB",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "dynamicFeeAddress",
+						"name": "_governanceToken",
 						"type": "address"
 					}
 				],
@@ -56,37 +51,6 @@
 					}
 				],
 				"name": "LiquidityIncentive",
-				"type": "event"
-			},
-			{
-				"anonymous": false,
-				"inputs": [
-					{
-						"indexed": true,
-						"internalType": "address",
-						"name": "user",
-						"type": "address"
-					},
-					{
-						"indexed": false,
-						"internalType": "uint256",
-						"name": "amountIn",
-						"type": "uint256"
-					},
-					{
-						"indexed": false,
-						"internalType": "uint256",
-						"name": "amountOut",
-						"type": "uint256"
-					},
-					{
-						"indexed": false,
-						"internalType": "uint256",
-						"name": "fee",
-						"type": "uint256"
-					}
-				],
-				"name": "SwapExecuted",
 				"type": "event"
 			},
 			{
@@ -134,19 +98,6 @@
 						"internalType": "uint256",
 						"name": "",
 						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "dynamicFeeContract",
-				"outputs": [
-					{
-						"internalType": "contract DynamicFee",
-						"name": "",
-						"type": "address"
 					}
 				],
 				"stateMutability": "view",
@@ -218,50 +169,6 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint256",
-						"name": "amountIn",
-						"type": "uint256"
-					},
-					{
-						"internalType": "bool",
-						"name": "isAToB",
-						"type": "bool"
-					}
-				],
-				"name": "swap",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "tokenA",
-				"outputs": [
-					{
-						"internalType": "contract IERC20",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "tokenB",
-				"outputs": [
-					{
-						"internalType": "contract IERC20",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
 						"name": "",
 						"type": "address"
@@ -292,7 +199,7 @@
 	},
 	"settings": {
 		"compilationTarget": {
-			"contracts/OpenDex.sol": "OpenDex"
+			"contracts/Yield.sol": "OpenDex"
 		},
 		"evmVersion": "cancun",
 		"libraries": {},
@@ -328,28 +235,12 @@
 				"dweb:/ipfs/QmayKQWJgWmr46DqWseADyUanmqxh662hPNdAkdHRjiQQH"
 			]
 		},
-		"contracts/DynamicFee.sol": {
-			"keccak256": "0xa714b76fd2fe468b1def3d918e824d3b32c3c96d57b446e7fd166729e450a570",
+		"contracts/Yield.sol": {
+			"keccak256": "0x95a2340a67724e08804adf79a6b4531679237f69686aa66ea3dc3ec1f835a216",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://fb84f71fc71cf938d4c52cb80cea30b98d100c0353dfe6ad141c4c5166e18030",
-				"dweb:/ipfs/QmW8bPKHcJdAf95iRTbMztyESFRAh4BeqtbHbMNsMv8N9w"
-			]
-		},
-		"contracts/OpenDex.sol": {
-			"keccak256": "0xb9d5122949d7831e638b665bf5d2253758f0aa43d366b7c36d916f9cc39d8ac8",
-			"license": "MIT",
-			"urls": [
-				"bzz-raw://3793e324b062a5f5c867f675f2c482364fb5e63a2dbc5e21e6268fa747fd1ad3",
-				"dweb:/ipfs/QmPJVnLmTwwBPsJGu5JjkniY5Pc3HrpTLP1jAi3bD1viX1"
-			]
-		},
-		"contracts/Oracle.sol": {
-			"keccak256": "0xbe53421362d9eeb02a4f6e324cea4020b3ace1c90ee837d23abf218e56e17a4e",
-			"license": "MIT",
-			"urls": [
-				"bzz-raw://a4433b0d0701efe36d122ecc5448e8b59e02d64518d43ae2c858297175ae23a4",
-				"dweb:/ipfs/QmY3eTxHpcmRbhkMNasm1Tt5dFFuJ8V4xtFjTGS2rtMyEj"
+				"bzz-raw://d4f9ca4782fe1497c45f0973d21a49c1a2e4f5c9a3a838fa9d30ffe8f1600b18",
+				"dweb:/ipfs/QmNkipxs6G2LSXD4CRUkqEVYKxSfrq4YuqfgPxizaPwmeQ"
 			]
 		}
 	},
